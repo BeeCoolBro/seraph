@@ -122,6 +122,12 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener('keyup', keyUpHandler);
 })();
 
-
-
-
+// Bee's Vault can mute the game it shows (storage/js/vault-audio.js).
+// Only loaded when this page is inside a frame.
+(function () {
+    if (window.parent === window) return;
+    var me = document.currentScript && document.currentScript.src;
+    var s = document.createElement("script");
+    s.src = me ? me.replace(/cloak\.js(\?.*)?$/, "vault-audio.js") : "/storage/js/vault-audio.js";
+    (document.head || document.documentElement).appendChild(s);
+})();
