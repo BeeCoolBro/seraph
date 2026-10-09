@@ -53,13 +53,6 @@ a { color: #00ffe7; }
       if (!r.ok) throw new Error(r.status);
       return r.text();
     }).then(function (html) {
-      // Some games still ask for their files over http://, which a page on
-      // https:// isn't allowed to load; this has the browser ask over https://.
-      var tag = '<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">' +
-        '<script src="/storage/js/vault-audio.js"><\/script>';
-      // after the doctype if it has one, so the page keeps its layout mode
-      var m = /<!doctype[^>]*>/i.exec(html.slice(0, 4000));
-      html = m ? html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length) : tag + html;
       // The emulator games keep their game files (.zip, .gba, ...) behind
       // githack, which now turns away the size check the emulator makes first.
       // Ask the file's own home (Bitbucket or GitHub) instead; both let it.
@@ -71,13 +64,39 @@ a { color: #00ffe7; }
       // the same files, with the right types for scripts and pages, but only up
       // to 20 MB; so a folder or a script/page goes to jsDelivr and anything
       // else (a big .swf, game data) straight to GitHub.
+      var folders = [];
       html = html.replace(/(?:https?:)?\/\/cdn\.statically\.io\/gh\/([^\/"'`\s<>]+)\/([^\/@"'`\s<>]+)[\/@]([^\/"'`\s<>]+)\/([^"'`\s<>]*)/gi,
         function (all, user, repo, ref, file) {
           var bare = file.split(/[?#]/)[0];
-          return /(^|\/)$|\.(js|mjs|css|html?|json|wasm)$/i.test(bare)
-            ? 'https://cdn.jsdelivr.net/gh/' + user + '/' + repo + '@' + ref + '/' + file
-            : 'https://raw.githubusercontent.com/' + user + '/' + repo + '/' + ref + '/' + file;
+          var jsd = 'https://cdn.jsdelivr.net/gh/' + user + '/' + repo + '@' + ref + '/' + file;
+          var raw = 'https://raw.githubusercontent.com/' + user + '/' + repo + '/' + ref + '/' + file;
+          if (/(^|\/)$/.test(bare)) folders.push([jsd, raw]);
+          return /(^|\/)$|\.(js|mjs|css|html?)$/i.test(bare) ? jsd : raw;
         });
+
+      // Some games still ask for their files over http://, which a page on
+      // https:// isn't allowed to load; this has the browser ask over https://.
+      var tag = '<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">' +
+        '<script src="/storage/js/vault-audio.js"><\/script>';
+      // A game whose folder moved to jsDelivr may load a file bigger than
+      // jsDelivr's 20 MB (a Godot .pck or .wasm, say): all but its scripts and
+      // pages come from GitHub instead.
+      if (folders.length) tag += '<script>(' + function (F) {
+        function fix(u) {
+          var a;
+          try { a = new URL(u, document.baseURI).href; } catch (e) { return u; }
+          if (/\.(js|mjs|css|html?)([?#]|$)/i.test(a)) return u;
+          for (var i = 0; i < F.length; i++) if (a.indexOf(F[i][0]) === 0) return F[i][1] + a.slice(F[i][0].length);
+          return u;
+        }
+        var f = window.fetch;
+        window.fetch = function (r, o) { return f.call(this, typeof r === 'string' || r instanceof URL ? fix(String(r)) : r, o); };
+        var x = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (m, u) { arguments[1] = fix(String(u)); return x.apply(this, arguments); };
+      } + ')(' + JSON.stringify(folders).replace(/</g, '\\u003c') + ')<\/script>';
+      // after the doctype if it has one, so the page keeps its layout mode
+      var m = /<!doctype[^>]*>/i.exec(html.slice(0, 4000));
+      html = m ? html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length) : tag + html;
       document.open();
       document.write(html);
       document.close();
