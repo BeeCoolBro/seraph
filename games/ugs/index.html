@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loading game...</title>
+<style>
+html, body { margin: 0; height: 100%; background: #07070d; color: #8fa3b8; font: 14px/1.6 monospace; }
+body { display: grid; place-items: center; text-align: center; padding: 0 16px; box-sizing: border-box; }
+.spin { width: 28px; height: 28px; margin: 0 auto 14px; border: 3px solid #ffffff1f; border-top-color: #00ffe7; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+a { color: #00ffe7; }
+</style>
+</head>
+<body>
+<div id="msg"><div class="spin"></div>Loading game...</div>
+<script>
+/* One page for every game from the Ultimate Game Stash (bubbls/ugs-singlefile),
+ * which Bee's Vault lists as games/ugs/?g=<file>. Each of those games is a
+ * single HTML file: this page fetches it, at one fixed commit so it can't
+ * change under the vault, and turns into it. It stays on this site, so the game
+ * runs apart from Bee's Vault, like every other game here.
+ *
+ * vault-audio.js goes in first, as in every game page, so the vault can mute
+ * the game. This page doesn't load it itself: writing the game in clears this
+ * page's listeners, and the copy written in with the game sets them up again. */
+(function () {
+  var COMMIT = '6625addc037b2dcfa0086ffaeb314fd3c90c342f';
+  var id = new URLSearchParams(location.search).get('g') || '';
+  var msg = document.getElementById('msg');
+
+  function fail(why) {
+    msg.textContent = '';
+    msg.appendChild(document.createTextNode('This game couldn’t be loaded: ' + why + '.'));
+    msg.appendChild(document.createElement('br'));
+    var again = document.createElement('a');
+    again.href = location.href;
+    again.textContent = 'Try again';
+    msg.appendChild(again);
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9 !$()._-]{0,120}$/.test(id)) return fail('there is no such game');
+  var path = 'UGS-Files/' + encodeURIComponent(id) + '.html';
+  var sources = [
+    'https://cdn.jsdelivr.net/gh/bubbls/ugs-singlefile@' + COMMIT + '/' + path,
+    'https://raw.githubusercontent.com/bubbls/ugs-singlefile/' + COMMIT + '/' + path
+  ];
+
+  (function next(i) {
+    if (i >= sources.length) return fail('its server isn’t answering');
+    fetch(sources[i]).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    }).then(function (html) {
+      var tag = '<script src="/storage/js/vault-audio.js"><\/script>';
+      // after the doctype if it has one, so the page keeps its layout mode
+      var m = /<!doctype[^>]*>/i.exec(html.slice(0, 4000));
+      html = m ? html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length) : tag + html;
+      document.open();
+      document.write(html);
+      document.close();
+    }).catch(function () { next(i + 1); });
+  })(0);
+})();
+</script>
+</body>
+</html>
