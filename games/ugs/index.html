@@ -60,6 +60,13 @@ a { color: #00ffe7; }
       // after the doctype if it has one, so the page keeps its layout mode
       var m = /<!doctype[^>]*>/i.exec(html.slice(0, 4000));
       html = m ? html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length) : tag + html;
+      // The emulator games keep their game files (.zip, .gba, ...) behind
+      // githack, which now turns away the size check the emulator makes first.
+      // Ask the file's own home (Bitbucket or GitHub) instead; both let it.
+      html = html.replace(/https:\/\/(bbcdn|rawcdn|raw)\.githack\.com\/([^"`\s<>]+?\.(?:zip|7z|gba|gbc|gb|nds|nes|sfc|smc|z64|n64|iso|bin|chd|pbp))(?=["'`])/gi,
+        function (all, host, rest) {
+          return (host.toLowerCase() === 'bbcdn' ? 'https://bitbucket.org/' : 'https://raw.githubusercontent.com/') + rest;
+        });
       document.open();
       document.write(html);
       document.close();
