@@ -21,9 +21,10 @@ a { color: #00ffe7; }
  * change under the vault, and turns into it. It stays on this site, so the game
  * runs apart from Bee's Vault, like every other game here.
  *
- * vault-audio.js goes in first, as in every game page, so the vault can mute
- * the game. This page doesn't load it itself: writing the game in clears this
- * page's listeners, and the copy written in with the game sets them up again. */
+ * The http:// fix and vault-audio.js go in first: vault-audio.js, as in every
+ * game page, so the vault can mute the game. This page doesn't load it itself:
+ * writing the game in clears this page's listeners, and the copy written in
+ * with the game sets them up again. */
 (function () {
   var COMMIT = '6625addc037b2dcfa0086ffaeb314fd3c90c342f';
   var id = new URLSearchParams(location.search).get('g') || '';
@@ -52,7 +53,10 @@ a { color: #00ffe7; }
       if (!r.ok) throw new Error(r.status);
       return r.text();
     }).then(function (html) {
-      var tag = '<script src="/storage/js/vault-audio.js"><\/script>';
+      // Some games still ask for their files over http://, which a page on
+      // https:// isn't allowed to load; this has the browser ask over https://.
+      var tag = '<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">' +
+        '<script src="/storage/js/vault-audio.js"><\/script>';
       // after the doctype if it has one, so the page keeps its layout mode
       var m = /<!doctype[^>]*>/i.exec(html.slice(0, 4000));
       html = m ? html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length) : tag + html;
