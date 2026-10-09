@@ -67,6 +67,17 @@ a { color: #00ffe7; }
         function (all, host, rest) {
           return (host.toLowerCase() === 'bbcdn' ? 'https://bitbucket.org/' : 'https://raw.githubusercontent.com/') + rest;
         });
+      // statically.io (GitHub files) has slowed to a trickle. jsDelivr serves
+      // the same files, with the right types for scripts and pages, but only up
+      // to 20 MB; so a folder or a script/page goes to jsDelivr and anything
+      // else (a big .swf, game data) straight to GitHub.
+      html = html.replace(/(?:https?:)?\/\/cdn\.statically\.io\/gh\/([^\/"'`\s<>]+)\/([^\/@"'`\s<>]+)[\/@]([^\/"'`\s<>]+)\/([^"'`\s<>]*)/gi,
+        function (all, user, repo, ref, file) {
+          var bare = file.split(/[?#]/)[0];
+          return /(^|\/)$|\.(js|mjs|css|html?|json|wasm)$/i.test(bare)
+            ? 'https://cdn.jsdelivr.net/gh/' + user + '/' + repo + '@' + ref + '/' + file
+            : 'https://raw.githubusercontent.com/' + user + '/' + repo + '/' + ref + '/' + file;
+        });
       document.open();
       document.write(html);
       document.close();
